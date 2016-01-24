@@ -26,8 +26,8 @@ class FoodAPI
     init()
     {
         // Initialize the Foursquare client
-        // Note: It's not recommended to put API secrets into public GitHub code. You can imagine the secrets below don't work, so get your own!
-        
+
+        // My clientID and clientSecret from foursquare
         let client = Client(clientID: "JES1WENK2G1PBDF5HKLDXTVB5TEJY5RK5JBEDEFCWQZR532L", clientSecret: "GRN5QITEA315MRE3VPR2HTGM2BPOI53S22UBSJE0WDEPMMF0", redirectURL: "");
         
         let configuration = Configuration(client:client);

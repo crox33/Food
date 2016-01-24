@@ -12,6 +12,7 @@ import MapKit
 
 class Venue: Object
 {
+    // Realm relies on Objective-C runtime. Swift 2.0 has it's own runtime.
     dynamic var id:String = "";
     dynamic var name:String = "";
     

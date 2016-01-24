@@ -36,7 +36,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     override func viewDidLoad()
     {
         super.viewDidLoad();
-        
+        // This code will send a notification to every part of the app that listens to it. It’s the de facto notification mechanism in apps, and it’s very effective for events that affect multiple parts of your app. Consider that you’ve just received new data from Foursquare. You may want to update the table view that shows that data, or some other part of your code.
         NSNotificationCenter.defaultCenter().addObserver(self, selector: Selector("onVenuesUpdated:"), name: API.notifications.venuesUpdated, object: nil);
     }
     
