@@ -10,8 +10,7 @@ import UIKit
 import MapKit
 import RealmSwift
 
-class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDataSource, UITableViewDelegate, MKMapViewDelegate
-{
+class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDataSource, UITableViewDelegate, MKMapViewDelegate {
     /// Outlet for the map view (top)
     @IBOutlet var mapView:MKMapView?;
     
@@ -33,27 +32,76 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     /// Span in meters for map view and data filtering
     let distanceSpan:Double = 500;
     
-    override func viewDidLoad()
-    {
+    override func viewDidLoad() {
         super.viewDidLoad();
         // This code will send a notification to every part of the app that listens to it. It’s the de facto notification mechanism in apps, and it’s very effective for events that affect multiple parts of your app. Consider that you’ve just received new data from Foursquare. You may want to update the table view that shows that data, or some other part of your code.
         NSNotificationCenter.defaultCenter().addObserver(self, selector: Selector("onVenuesUpdated:"), name: API.notifications.venuesUpdated, object: nil);
+        
+        print(Realm.Configuration.defaultConfiguration.path)
     }
     
-    func refreshVenues(location: CLLocation?, getDataFromFoursquare:Bool = false)
-    {
-        // If location isn't nil, set it as the last location
-        if location != nil
+    func calculateCoordinatesWithRegion(location:CLLocation) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {
+        let region = MKCoordinateRegionMakeWithDistance(location.coordinate, distanceSpan, distanceSpan);
+        
+        var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
+        var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
+        
+        start.latitude  = region.center.latitude  + (region.span.latitudeDelta  / 2.0);
+        start.longitude = region.center.longitude - (region.span.longitudeDelta / 2.0);
+        stop.latitude   = region.center.latitude  - (region.span.latitudeDelta  / 2.0);
+        stop.longitude  = region.center.longitude + (region.span.longitudeDelta / 2.0);
+        
+        return (start, stop);
+    }
+    
+    override func viewWillAppear(animated: Bool) {
+        super.viewWillAppear(animated);
+        
+        if let tableView = self.tableView
         {
+            tableView.delegate = self;
+            tableView.dataSource = self;
+        }
+        
+        if let mapView = self.mapView
+        {
+            mapView.delegate = self;
+        }
+    }
+    
+    override func viewDidAppear(animated: Bool) {
+        if locationManager == nil {
+            locationManager = CLLocationManager();
+            
+            locationManager!.delegate = self;
+            locationManager!.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+            locationManager!.requestAlwaysAuthorization();
+            locationManager!.distanceFilter = 50; // Don't send location updates with a distance smaller than 50 meters between them
+            locationManager!.startUpdatingLocation();
+        }
+    }
+    
+    func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation) {
+        if let mapView = self.mapView {
+            // setRegion sets both the center coordinate, and the "zoom level"
+            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan, distanceSpan);
+            mapView.setRegion(region, animated: true);
+            
+            // When a new location update comes in, reload from Realm and from Foursquare
+            refreshVenues(newLocation, getDataFromFoursquare: true);
+        }
+    }
+    
+    func refreshVenues(location: CLLocation?, getDataFromFoursquare:Bool = false) {
+        // If location isn't nil, set it as the last location
+        if location != nil {
             lastLocation = location;
         }
         
         // If the last location isn't nil, i.e. if a lastLocation was set OR parameter location wasn't nil
-        if let location = lastLocation
-        {
+        if let location = lastLocation {
             // Make a call to Foursquare to get data
-            if getDataFromFoursquare == true
-            {
+            if getDataFromFoursquare == true {
                 FoodAPI.sharedInstance.getFoodShopsWithLocation(location);
             }
             
@@ -72,8 +120,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             };
             
             // Throw the found venues on the map kit as annotations
-            for venue in venues!
-            {
+            for venue in venues! {
                 let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
                 
                 mapView?.addAnnotation(annotation);
@@ -84,92 +131,31 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         }
     }
     
-    func calculateCoordinatesWithRegion(location:CLLocation) -> (CLLocationCoordinate2D, CLLocationCoordinate2D)
-    {
-        let region = MKCoordinateRegionMakeWithDistance(location.coordinate, distanceSpan, distanceSpan);
-        
-        var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
-        var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
-        
-        start.latitude  = region.center.latitude  + (region.span.latitudeDelta  / 2.0);
-        start.longitude = region.center.longitude - (region.span.longitudeDelta / 2.0);
-        stop.latitude   = region.center.latitude  - (region.span.latitudeDelta  / 2.0);
-        stop.longitude  = region.center.longitude + (region.span.longitudeDelta / 2.0);
-        
-        return (start, stop);
-    }
+
     
-    override func viewWillAppear(animated: Bool)
-    {
-        super.viewWillAppear(animated);
-        
-        if let tableView = self.tableView
-        {
-            tableView.delegate = self;
-            tableView.dataSource = self;
-        }
-        
-        if let mapView = self.mapView
-        {
-            mapView.delegate = self;
-        }
-    }
     
-    override func viewDidAppear(animated: Bool)
-    {
-        if locationManager == nil
-        {
-            locationManager = CLLocationManager();
-            
-            locationManager!.delegate = self;
-            locationManager!.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
-            locationManager!.requestAlwaysAuthorization();
-            locationManager!.distanceFilter = 50; // Don't send location updates with a distance smaller than 50 meters between them
-            locationManager!.startUpdatingLocation();
-        }
-    }
-    
-    func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation)
-    {
-        if let mapView = self.mapView
-        {
-            // setRegion sets both the center coordinate, and the "zoom level"
-            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan, distanceSpan);
-            mapView.setRegion(region, animated: true);
-            
-            // When a new location update comes in, reload from Realm and from Foursquare
-            refreshVenues(newLocation, getDataFromFoursquare: true);
-        }
-    }
-    
-    func onVenuesUpdated(notification:NSNotification)
-    {
+    func onVenuesUpdated(notification:NSNotification) {
         // When new data from Foursquare comes in, reload from local Realm
         refreshVenues(nil);
     }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int
-    {
+    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // When venues is nil, this will return 0 (nil-coalescing operator ??)
         return venues?.count ?? 0;
     }
     
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int
-    {
+    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
         return 1;
     }
     
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell
-    {
+    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         var cell = tableView.dequeueReusableCellWithIdentifier("cellIdentifier");
         
-        if cell == nil
-        {
+        if cell == nil {
             cell = UITableViewCell(style: UITableViewCellStyle.Subtitle, reuseIdentifier: "cellIdentifier");
         }
         
-        if let venue = venues?[indexPath.row]
-        {
+        if let venue = venues?[indexPath.row] {
             cell!.textLabel?.text = venue.name;
             cell!.detailTextLabel?.text = venue.address;
         }
@@ -177,17 +163,14 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         return cell!;
     }
     
-    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView?
-    {
-        if annotation.isKindOfClass(MKUserLocation)
-        {
+    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
+        if annotation.isKindOfClass(MKUserLocation) {
             return nil;
         }
         
         var view = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier");
         
-        if view == nil
-        {
+        if view == nil {
             view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier");
         }
         
@@ -196,18 +179,15 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         return view;
     }
     
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath)
-    {
+    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
         // When the user taps a table view cell, attempt to pan to the pin in the map view
-        if let venue = venues?[indexPath.row]
-        {
+        if let venue = venues?[indexPath.row] {
             let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan, distanceSpan);
             mapView?.setRegion(region, animated: true);
         }
     }
     
-    override func didReceiveMemoryWarning()
-    {
+    override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning();
     }
 }
