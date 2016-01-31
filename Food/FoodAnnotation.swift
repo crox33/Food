@@ -9,14 +9,17 @@
 import Foundation
 import MapKit
 
-class FoodAnnotation: NSObject, MKAnnotation
-{
+
+// New class called FoodAnnotation that inherits from NSObject and implements the MKAnnotation protocol. Before you can use a class as an annotation, it needs to conform to the annotation protocol.
+class FoodAnnotation: NSObject, MKAnnotation {
+    
+    // These properties are required to be part of the class, because the protocol dictates so.
     let title:String?;
     let subtitle:String?;
     let coordinate: CLLocationCoordinate2D;
     
-    init(title: String?, subtitle:String?, coordinate: CLLocationCoordinate2D)
-    {
+    // Filling up the class properties based on the method parameters.
+    init(title: String?, subtitle:String?, coordinate: CLLocationCoordinate2D) {
         self.title = title;
         self.subtitle = subtitle;
         self.coordinate = coordinate;
