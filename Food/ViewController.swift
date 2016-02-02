@@ -78,7 +78,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             locationManager!.delegate = self;
             locationManager!.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
             locationManager!.requestAlwaysAuthorization();
-            locationManager!.distanceFilter = 50; // Don't send location updates with a distance smaller than 50 meters between them
+            locationManager!.distanceFilter = 10; // Don't send location updates with a distance smaller than 50 meters between them
             // This will cause the location manager to poll for a GPS location, and call a method on the delegate telling it the new GPS location.
             locationManager!.startUpdatingLocation();
         }
@@ -89,7 +89,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation) {
         if let mapView = self.mapView {
             // setRegion sets both the center coordinate, and the "zoom level"
-            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan * 2.0, distanceSpan * 2.0);
+            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan/2, distanceSpan/2);
             mapView.setRegion(region, animated: true)
             
             // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
@@ -155,18 +155,41 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             return nil;
         }
         
-        // Dequeue a pin.
-        var view = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier");
+        var view: MKPinAnnotationView
+        //  Map views are set up to reuse annotation views when some are no longer visible. So the code first checks to see if a reusable annotation view is available before creating a new one.
+        if let dequeuedView = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier") as? MKPinAnnotationView {
+            dequeuedView.annotation = annotation
+            view = dequeuedView
+        } else {
+            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
+            view.animatesDrop = true
+            view.canShowCallout = true
         
-        // If no pin was dequeued, create a new one.
-        if view == nil {
-            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier");
+//        // Dequeue a pin.
+//        var view = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier");
+//        
+//        // If no pin was dequeued, create a new one.
+//        if view == nil {
+//            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier");
+//        }
+//        // Set that the pin can show a callout (little blurb with information).
+//        view!.canShowCallout = true
+            view.calloutOffset = CGPoint(x: -5, y: 5)
+            view.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
         }
-        // Set that the pin can show a callout (little blurb with information).
-        view?.canShowCallout = true
-        
         return view
     }
+    
+    // When the user taps a map annotation pin, the callout shows an info button. If the user taps this info button, this method is called.
+    func mapView(mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+        /* Grab the FoodAnnotation object that this tap refers to and then launch the Maps app by creating an associated MKMapItem and calling openInMapsWithLaunchOptions on the map item.
+        Notice you’re passing a dictionary to this method. This allows you to specify a few different options; here the DirectionModeKeys is set to Walking. This will make the Maps app try to show walking directions from the user’s current location to this pin.
+        */
+        let location = view.annotation as! FoodAnnotation
+        let launchOptions = [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking]
+        location.mapItem().openInMapsWithLaunchOptions(launchOptions)
+    }
+    
     
     // Determines how many cells the table view has.
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -200,13 +223,21 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     
     // Delegate method that’s called when the user taps a cell.
     func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-        // When the user taps a table view cell, attempt to pan to the pin in the map view
+        // When the user taps a table view cell, attempt to pan to the pin in the map view and trigger callout on the pin
         if let venue = venues?[indexPath.row] {
-            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan, distanceSpan)
+            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
             mapView?.setRegion(region, animated: true)
+            
+            for annotation in mapView!.annotations {
+                if annotation.coordinate.latitude == Double(venue.latitude) && annotation.coordinate.longitude == Double(venue.longitude) {
+                    mapView?.selectAnnotation(annotation, animated: true)
+                    break
+                }
+            }
         }
     }
-    
+
+
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning();
     }

@@ -8,6 +8,7 @@
 
 import Foundation
 import MapKit
+import Contacts
 
 
 // New class called FoodAnnotation that inherits from NSObject and implements the MKAnnotation protocol. Before you can use a class as an annotation, it needs to conform to the annotation protocol.
@@ -25,5 +26,16 @@ class FoodAnnotation: NSObject, MKAnnotation {
         self.coordinate = coordinate;
         
         super.init();
+    }
+    
+    // Annotation callout info button opens this mapItem in Maps app.
+    func mapItem() -> MKMapItem {
+        let addressDict = [String(CNPostalAddressStreetKey): self.subtitle!]
+        let place = MKPlacemark(coordinate: self.coordinate, addressDictionary: addressDict)
+        
+        let mapItem = MKMapItem(placemark: place)
+        mapItem.name = self.title
+        
+        return mapItem
     }
 }

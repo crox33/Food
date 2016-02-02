@@ -17,7 +17,7 @@ struct API {
     }
 }
 
-// Tell the Xcode compiler that you are coding a class named CoffeeAPI. It’s a pure Swift class, and doesn’t subclass NSObject!
+// FoodAPI. It’s a pure Swift class, and doesn’t subclass NSObject!
 class FoodAPI {
     // Declare a static class constant called sharedInstance, of type FoodAPI. This “shared instance” is only accessible through the class FoodAPI, and is instantiated when the app starts (eager loading).
     static let sharedInstance = FoodAPI();
