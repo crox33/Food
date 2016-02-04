@@ -24,13 +24,13 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     var lastLocation:CLLocation?;
     
     /// Stores venues from Realm as a Results instance, use if not using non-lazy / Realm sorting
-    //var venues:Results<Venue>?;
+    var venues:Results<Venue>?;
     
     /// Stores venues from Realm, as a non-lazy list
-    var venues:[Venue]?;
+    var inMapDisplayVenues:[Venue]?;
     
     /// Span in meters for map view and data filtering
-    let distanceSpan:Double = 2000;
+    let distanceSpan:Double = 1000
     
     override func viewDidLoad() {
         super.viewDidLoad();
@@ -40,8 +40,10 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
 //        print(Realm.Configuration.defaultConfiguration.path)
     }
     
-    func calculateCoordinatesWithRegion(location:CLLocation) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {
-        let region = MKCoordinateRegionMakeWithDistance(location.coordinate, distanceSpan, distanceSpan);
+    
+    // Turn a CLLocation instance into a top-left and bottom-right coordinate, based on a region distance span.
+    func calculateCoordinatesWithRegion(location:CLLocation, regionRadius:Double) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {
+        let region = MKCoordinateRegionMakeWithDistance(location.coordinate, regionRadius, regionRadius);
         
         var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
         var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
@@ -89,7 +91,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation) {
         if let mapView = self.mapView {
             // setRegion sets both the center coordinate, and the "zoom level"
-            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan/2, distanceSpan/2);
+            let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan, distanceSpan);
             mapView.setRegion(region, animated: true)
             
             // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
@@ -112,28 +114,30 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             }
             
             // Convenience method to calculate the top-left and bottom-right GPS coordinates based on region (defined with distanceSpan).
-            let (start, stop) = calculateCoordinatesWithRegion(location);
+            let (start, stop) = calculateCoordinatesWithRegion(location, regionRadius: distanceSpan);
             
-            // Set up a predicate that ensures the fetched venues are within the region.
+            // Set up a predicate that ensures the fetched venues are within the region of the user location.
             let predicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude);
             
             // Initialize Realm (while supressing error handling).
             let realm = try! Realm();
             
             // Get all the objects of class Venue from Realm. Note that the "sort" isn't part of Realm, it's Swift, and it defeats Realm's lazy loading nature!
-            venues = realm.objects(Venue).filter(predicate).sort {
-                // The sort method takes one argument: a closure that determines the order of two unsorted objects. By returning true or false, the closure indicates which of the two objects precedes the other. In your code, you determine the order based on distance from the user’s location. This is where the coordinate computed property comes into play. The $0 and $1 are shorthands for the two unsorted objects. Basically, the method sorts the venues on distance from the user’s location (closer = higher).
-                location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
-            }
+            venues = realm.objects(Venue)
             
             // Throw the found venues on the map kit as annotations
             for venue in venues! {
                 let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
                 
-                mapView?.addAnnotation(annotation);
+                mapView?.addAnnotation(annotation)
             }
             
-            // RELOAD ALL DATA!!!
+            inMapDisplayVenues = venues!.filter(predicate).sort {
+                // The sort method takes one argument: a closure that determines the order of two unsorted objects. By returning true or false, the closure indicates which of the two objects precedes the other. In your code, you determine the order based on distance from the user’s location. This is where the coordinate computed property comes into play. The $0 and $1 are shorthands for the two unsorted objects. Basically, the method sorts the venues on distance from the user’s location (closer = higher).
+                location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
+            }
+            
+            // RELOAD ALL DATA to be show in the table!!!
             tableView?.reloadData();
         }
     }
@@ -164,16 +168,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
             view.animatesDrop = true
             view.canShowCallout = true
-        
-//        // Dequeue a pin.
-//        var view = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier");
-//        
-//        // If no pin was dequeued, create a new one.
-//        if view == nil {
-//            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier");
-//        }
-//        // Set that the pin can show a callout (little blurb with information).
-//        view!.canShowCallout = true
             view.calloutOffset = CGPoint(x: -5, y: 5)
             view.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
         }
@@ -194,7 +188,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     // Determines how many cells the table view has.
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // When venues is nil, this will return 0 (nil-coalescing operator ??)
-        return venues?.count ?? 0;
+        return inMapDisplayVenues?.count ?? 0;
     }
     
     // Determines how many sections the table view has.
@@ -213,7 +207,8 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         }
         
         // If venues contains an item for index indexPath.row, assign it to constant venue. Use the data to populate the textLabel and detailTextLabel of the cell.
-        if let venue = venues?[indexPath.row] {
+        
+        if let venue = inMapDisplayVenues?[indexPath.row] {
             cell!.textLabel?.text = venue.name;
             cell!.detailTextLabel?.text = venue.address;
         }
@@ -223,8 +218,10 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     
     // Delegate method that’s called when the user taps a cell.
     func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+        
+//        print("\(inMapDisplayVenues?.count) rows and selected row \(indexPath.row)")
         // When the user taps a table view cell, attempt to pan to the pin in the map view and trigger callout on the pin
-        if let venue = venues?[indexPath.row] {
+        if let venue = inMapDisplayVenues?[indexPath.row] {
             let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
             mapView?.setRegion(region, animated: true)
             
