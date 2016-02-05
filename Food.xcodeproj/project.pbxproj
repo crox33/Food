@@ -20,6 +20,8 @@
 		E29D5B5A1C55404600B37890 /* Venue.swift in Sources */ = {isa = PBXBuildFile; fileRef = E29D5B591C55404600B37890 /* Venue.swift */; };
 		E29D5B5C1C55406400B37890 /* FoodAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E29D5B5B1C55406400B37890 /* FoodAPI.swift */; };
 		E29D5B5E1C5540BA00B37890 /* FoodAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E29D5B5D1C5540BA00B37890 /* FoodAnnotation.swift */; };
+		E2A7FF581C643A3700F2F86D /* VCMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A7FF571C643A3700F2F86D /* VCMapView.swift */; };
+		E2A7FF5A1C643A6400F2F86D /* VCTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A7FF591C643A6400F2F86D /* VCTableView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +63,8 @@
 		E29D5B591C55404600B37890 /* Venue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Venue.swift; sourceTree = "<group>"; };
 		E29D5B5B1C55406400B37890 /* FoodAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FoodAPI.swift; sourceTree = "<group>"; };
 		E29D5B5D1C5540BA00B37890 /* FoodAnnotation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FoodAnnotation.swift; sourceTree = "<group>"; };
+		E2A7FF571C643A3700F2F86D /* VCMapView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VCMapView.swift; sourceTree = "<group>"; };
+		E2A7FF591C643A6400F2F86D /* VCTableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VCTableView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +131,8 @@
 			children = (
 				E2544CF61C553DF2009BEC13 /* AppDelegate.swift */,
 				E2544CF81C553DF2009BEC13 /* ViewController.swift */,
+				E2A7FF571C643A3700F2F86D /* VCMapView.swift */,
+				E2A7FF591C643A6400F2F86D /* VCTableView.swift */,
 				E2544CFA1C553DF2009BEC13 /* Main.storyboard */,
 				E2544CFD1C553DF2009BEC13 /* Assets.xcassets */,
 				E2544CFF1C553DF2009BEC13 /* LaunchScreen.storyboard */,
@@ -351,6 +357,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E2A7FF5A1C643A6400F2F86D /* VCTableView.swift in Sources */,
+				E2A7FF581C643A3700F2F86D /* VCMapView.swift in Sources */,
 				E2544CF91C553DF2009BEC13 /* ViewController.swift in Sources */,
 				E29D5B5A1C55404600B37890 /* Venue.swift in Sources */,
 				E29D5B5E1C5540BA00B37890 /* FoodAnnotation.swift in Sources */,

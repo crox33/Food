@@ -10,7 +10,7 @@ import UIKit
 import MapKit
 import RealmSwift
 
-class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDataSource, UITableViewDelegate, MKMapViewDelegate {
+class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureRecognizerDelegate {
     /// Outlet for the map view (top)
     @IBOutlet var mapView:MKMapView?
     
@@ -22,6 +22,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     
     /// Convenient property to remember the last location
     var lastLocation:CLLocation?;
+    var viewLocation:CLLocation?;
     
     /// Stores venues from Realm as a Results instance, use if not using non-lazy / Realm sorting
     var venues:Results<Venue>?;
@@ -31,31 +32,19 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
     
     /// Span in meters for map view and data filtering
     let distanceSpan:Double = 1000
+    var center: CLLocationCoordinate2D?
     
     override func viewDidLoad() {
         super.viewDidLoad();
         // This code will send a notification to every part of the app that listens to it. It’s the de facto notification mechanism in apps, and it’s very effective for events that affect multiple parts of your app. Consider that you’ve just received new data from Foursquare. You may want to update the table view that shows that data, or some other part of your code.
         NSNotificationCenter.defaultCenter().addObserver(self, selector: Selector("onVenuesUpdated:"), name: API.notifications.venuesUpdated, object: nil);
         
-//        print(Realm.Configuration.defaultConfiguration.path)
+        // All your other setup code
+        let mapDragRecognizer = UIPanGestureRecognizer(target: self, action: "didDragMap:")
+        mapDragRecognizer.delegate = self
+        self.mapView!.addGestureRecognizer(mapDragRecognizer)
+        
     }
-    
-    
-    // Turn a CLLocation instance into a top-left and bottom-right coordinate, based on a region distance span.
-    func calculateCoordinatesWithRegion(location:CLLocation, regionRadius:Double) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {
-        let region = MKCoordinateRegionMakeWithDistance(location.coordinate, regionRadius, regionRadius);
-        
-        var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
-        var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
-        
-        start.latitude  = region.center.latitude  + (region.span.latitudeDelta  / 2.0);
-        start.longitude = region.center.longitude - (region.span.longitudeDelta / 2.0);
-        stop.latitude   = region.center.latitude  - (region.span.latitudeDelta  / 2.0);
-        stop.longitude  = region.center.longitude + (region.span.longitudeDelta / 2.0);
-        
-        return (start, stop);
-    }
-    
     override func viewWillAppear(animated: Bool) {
         super.viewWillAppear(animated);
         
@@ -69,7 +58,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             mapView.delegate = self;
         }
     }
-    
     override func viewDidAppear(animated: Bool) {
         
         super.viewDidAppear(animated)
@@ -87,6 +75,52 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         mapView!.showsUserLocation = true
     }
     
+    // For the UIPanGestureRecognizer to work with the already existing gesture recognizers in MKMapView.
+    func gestureRecognizer(gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWithGestureRecognizer otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+    
+    // Detect either the "drag ended" or "drag began" state in your selector.
+    func didDragMap(gestureRecognizer: UIGestureRecognizer) {
+        if (gestureRecognizer.state == UIGestureRecognizerState.Began) {
+            print("Map drag began")
+        }
+        
+        if (gestureRecognizer.state == UIGestureRecognizerState.Ended) {
+            print("Map drag ended")
+            
+            // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
+            
+            viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
+            
+            refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
+            
+        }
+    }
+    
+    // Turn a CLLocation instance into a top-left and bottom-right coordinate, based on a region distance span. If distanceSpan is not passed in, the function will calculate from the mapView's current displayed region.
+    func calculateCoordinatesWithRegion(location:CLLocation, distanceSpan:Double?) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {
+        
+        var region: MKCoordinateRegion
+        
+        if let distanceSpan = distanceSpan {
+            region = MKCoordinateRegionMakeWithDistance(location.coordinate, distanceSpan, distanceSpan);
+        } else {
+            region = (mapView?.region)!
+        }
+        
+        
+        var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
+        var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
+        
+        start.latitude  = region.center.latitude  + (region.span.latitudeDelta  / 2.0);
+        start.longitude = region.center.longitude - (region.span.longitudeDelta / 2.0);
+        stop.latitude   = region.center.latitude  - (region.span.latitudeDelta  / 2.0);
+        stop.longitude  = region.center.longitude + (region.span.longitudeDelta / 2.0);
+        
+        return (start, stop);
+    }
+    
     // All location data in the app originates from the locationManager:didUpdateToLocation:fromLocation method. It is the only place where a CLLocation instance enters the app, based on data from the GPS hardware.
     func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation) {
         if let mapView = self.mapView {
@@ -95,12 +129,13 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             mapView.setRegion(region, animated: true)
             
             // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
-            refreshVenues(newLocation, getDataFromFoursquare: true)
+            refreshVenues(newLocation,distanceSpan: distanceSpan, getDataFromFoursquare: true)
         }
     }
     
+    
     // We want to call refreshVenues independently from method locationManager:didUpdateToLocation:fromLocation we need to store the location data separate from that method.
-    func refreshVenues(location: CLLocation?, getDataFromFoursquare:Bool = false) {
+    func refreshVenues(location: CLLocation?, distanceSpan:Double?, getDataFromFoursquare:Bool = false) {
         // If location isn't nil, set it as the last location
         if location != nil {
             lastLocation = location
@@ -114,7 +149,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
             }
             
             // Convenience method to calculate the top-left and bottom-right GPS coordinates based on region (defined with distanceSpan).
-            let (start, stop) = calculateCoordinatesWithRegion(location, regionRadius: distanceSpan);
+            let (start, stop) = calculateCoordinatesWithRegion(location, distanceSpan: distanceSpan);
             
             // Set up a predicate that ensures the fetched venues are within the region of the user location.
             let predicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude);
@@ -142,99 +177,12 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UITableViewDa
         }
     }
     
-
-    
-    
     func onVenuesUpdated(notification:NSNotification) {
         // When new data from Foursquare comes in, reload from local Realm.
         // The method does not include location data, and does not provide the getDataFromFoursquare parameter. That parameter is false by default, so no data from Foursquare is requested. You get it: this would in turn trigger an infinite loop in which the return of data causes a request for data ad infinitum.
-        refreshVenues(nil);
+        refreshVenues(nil, distanceSpan: nil);
     }
     
-    
-    // Ensures that the annotations you add to the map are actually shown. So, when the map view is ready to display pins it will call the mapView:viewForAnnotation: method when a delegate is set and thus the app will get here.
-    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
-        // Check if the annotation isn’t accidentally the user blip.
-        if annotation.isKindOfClass(MKUserLocation) {
-            return nil;
-        }
-        
-        var view: MKPinAnnotationView
-        //  Map views are set up to reuse annotation views when some are no longer visible. So the code first checks to see if a reusable annotation view is available before creating a new one.
-        if let dequeuedView = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier") as? MKPinAnnotationView {
-            dequeuedView.annotation = annotation
-            view = dequeuedView
-        } else {
-            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
-            view.animatesDrop = true
-            view.canShowCallout = true
-            view.calloutOffset = CGPoint(x: -5, y: 5)
-            view.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
-        }
-        return view
-    }
-    
-    // When the user taps a map annotation pin, the callout shows an info button. If the user taps this info button, this method is called.
-    func mapView(mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-        /* Grab the FoodAnnotation object that this tap refers to and then launch the Maps app by creating an associated MKMapItem and calling openInMapsWithLaunchOptions on the map item.
-        Notice you’re passing a dictionary to this method. This allows you to specify a few different options; here the DirectionModeKeys is set to Walking. This will make the Maps app try to show walking directions from the user’s current location to this pin.
-        */
-        let location = view.annotation as! FoodAnnotation
-        let launchOptions = [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking]
-        location.mapItem().openInMapsWithLaunchOptions(launchOptions)
-    }
-    
-    
-    // Determines how many cells the table view has.
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        // When venues is nil, this will return 0 (nil-coalescing operator ??)
-        return inMapDisplayVenues?.count ?? 0;
-    }
-    
-    // Determines how many sections the table view has.
-    func numberOfSectionsInTableView(tableView: UITableView) -> Int {
-        return 1;
-    }
-    
-    // The method tableView:cellForRowAtIndexPath: is called when the table view code wants a table view cell. You can use the method to customize your table view cells. It’s easier than subclassing!
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        // Attempt to dequeue a cell.
-        var cell = tableView.dequeueReusableCellWithIdentifier("cellIdentifier");
-        
-        // If no cell exists, create a new one with style Subtitle.
-        if cell == nil {
-            cell = UITableViewCell(style: UITableViewCellStyle.Subtitle, reuseIdentifier: "cellIdentifier");
-        }
-        
-        // If venues contains an item for index indexPath.row, assign it to constant venue. Use the data to populate the textLabel and detailTextLabel of the cell.
-        
-        if let venue = inMapDisplayVenues?[indexPath.row] {
-            cell!.textLabel?.text = venue.name;
-            cell!.detailTextLabel?.text = venue.address;
-        }
-        
-        return cell!;
-    }
-    
-    // Delegate method that’s called when the user taps a cell.
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
-        
-//        print("\(inMapDisplayVenues?.count) rows and selected row \(indexPath.row)")
-        // When the user taps a table view cell, attempt to pan to the pin in the map view and trigger callout on the pin
-        if let venue = inMapDisplayVenues?[indexPath.row] {
-            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
-            mapView?.setRegion(region, animated: true)
-            
-            for annotation in mapView!.annotations {
-                if annotation.coordinate.latitude == Double(venue.latitude) && annotation.coordinate.longitude == Double(venue.longitude) {
-                    mapView?.selectAnnotation(annotation, animated: true)
-                    break
-                }
-            }
-        }
-    }
-
-
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning();
     }
