@@ -16,23 +16,43 @@ extension ViewController: MKMapViewDelegate {
     // Ensures that the annotations you add to the map are actually shown. So, when the map view is ready to display pins it will call the mapView:viewForAnnotation: method when a delegate is set and thus the app will get here.
     func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
         // Check if the annotation isn’t accidentally the user blip.
-        if annotation.isKindOfClass(MKUserLocation) {
-            return nil;
+//        if annotation.isKindOfClass(MKUserLocation) {
+//            return nil;
+//        }
+        
+        if let annotation = annotation as? FoodAnnotation {
+            var view: MKPinAnnotationView
+            
+            //  Map views are set up to reuse annotation views when some are no longer visible. So the code first checks to see if a reusable annotation view is available before creating a new one.
+            if let dequeuedView = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier") as? MKPinAnnotationView {
+                dequeuedView.annotation = annotation
+                view = dequeuedView
+            } else {
+                view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
+                view.animatesDrop = false
+                view.canShowCallout = true
+                view.calloutOffset = CGPoint(x: -5, y: 5)
+                view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
+                
+                //            let location = view.annotation as! FoodAnnotation
+                
+                print(inMapDisplayVenues?.count)
+                //
+                //            for var i = 0; i<inMapDisplayVenues?.count; i++ {
+                //                print(i)
+                //                if location.coordinate.latitude == Double(inMapDisplayVenues![i].latitude) && location.coordinate.longitude == Double(inMapDisplayVenues![i].longitude) {
+                //                    print("success")
+                //                    tableView?.selectRowAtIndexPath(NSIndexPath(index: i), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 2)!)
+                //                    break
+                //                }
+                //                
+                //            }
+            
+            }
+            return view
         }
         
-        var view: MKPinAnnotationView
-        //  Map views are set up to reuse annotation views when some are no longer visible. So the code first checks to see if a reusable annotation view is available before creating a new one.
-        if let dequeuedView = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier") as? MKPinAnnotationView {
-            dequeuedView.annotation = annotation
-            view = dequeuedView
-        } else {
-            view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
-            //            view.animatesDrop = true
-            view.canShowCallout = true
-            view.calloutOffset = CGPoint(x: -5, y: 5)
-            view.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
-        }
-        return view
+        return nil
     }
     
     
@@ -44,6 +64,7 @@ extension ViewController: MKMapViewDelegate {
         let location = view.annotation as! FoodAnnotation
         let launchOptions = [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking]
         location.mapItem().openInMapsWithLaunchOptions(launchOptions)
+        
     }
     
     

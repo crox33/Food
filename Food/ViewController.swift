@@ -88,11 +88,9 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         
         if (gestureRecognizer.state == UIGestureRecognizerState.Ended) {
             print("Map drag ended")
-            
-            // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
-            
+    
             viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
-            
+            // Only pulls data from Realm.
             refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
             
         }
