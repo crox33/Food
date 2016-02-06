@@ -25,10 +25,11 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     var viewLocation:CLLocation?;
     
     /// Stores venues from Realm as a Results instance, use if not using non-lazy / Realm sorting
-    var venues:Results<Venue>?;
+    var allVenues:Results<Venue>?;
     
     /// Stores venues from Realm, as a non-lazy list
-    var inMapDisplayVenues:[Venue]?;
+    var mapVenues:[Venue]?;
+    var tableVenues:[Venue]?;
     
     /// Span in meters for map view and data filtering
     let distanceSpan:Double = 1000
@@ -44,7 +45,10 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         mapDragRecognizer.delegate = self
         self.mapView!.addGestureRecognizer(mapDragRecognizer)
         
+        populateMap()
+        
     }
+    
     override func viewWillAppear(animated: Bool) {
         super.viewWillAppear(animated);
         
@@ -58,8 +62,8 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             mapView.delegate = self;
         }
     }
+    
     override func viewDidAppear(animated: Bool) {
-        
         super.viewDidAppear(animated)
         
         if locationManager == nil {
@@ -73,6 +77,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             locationManager!.startUpdatingLocation();
         }
         mapView!.showsUserLocation = true
+        
     }
     
     // For the UIPanGestureRecognizer to work with the already existing gesture recognizers in MKMapView.
@@ -89,10 +94,9 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         if (gestureRecognizer.state == UIGestureRecognizerState.Ended) {
             print("Map drag ended")
     
-            viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
+//            viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
             // Only pulls data from Realm.
-            refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
-            
+//            refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
         }
     }
     
@@ -106,7 +110,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         } else {
             region = (mapView?.region)!
         }
-        
         
         var start:CLLocationCoordinate2D = CLLocationCoordinate2D();
         var stop:CLLocationCoordinate2D = CLLocationCoordinate2D();
@@ -126,14 +129,35 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan, distanceSpan);
             mapView.setRegion(region, animated: true)
             
-            // Calls refreshVenues with the GPS location of the user. Additionally, it tells the API to request data from Foursquare. Essentially, every time the user moves new data is requested from Foursquare. Thanks to the settings that only happens once every 50 meters. And thanks to the notification center, the map is updated!
-            refreshVenues(newLocation,distanceSpan: distanceSpan, getDataFromFoursquare: true)
+            viewLocation = CLLocation(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude)
+            let (displayStart, displayStop) = calculateCoordinatesWithRegion(viewLocation!, distanceSpan: nil)
+            
+            let tablePredicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", displayStart.latitude, displayStop.latitude, displayStart.longitude, displayStop.longitude)
+            
+            tableVenues = allVenues!.filter(tablePredicate).sort {
+                viewLocation!.distanceFromLocation($0.coordinate) < viewLocation!.distanceFromLocation($1.coordinate);
+            }
         }
     }
     
     
+    func populateMap() {
+        mapView!.removeAnnotations(mapView!.annotations)
+        // Refresh specimens property
+        allVenues = try! Realm().objects(Venue)
+        
+        // Throw the found venues on the map kit as annotations.
+        for venue in allVenues! {
+            let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
+            
+            mapView?.addAnnotation(annotation)
+        }
+        
+    }
+    
+    
     // We want to call refreshVenues independently from method locationManager:didUpdateToLocation:fromLocation we need to store the location data separate from that method.
-    func refreshVenues(location: CLLocation?, distanceSpan:Double?, getDataFromFoursquare:Bool = false) {
+    func refreshVenues(location: CLLocation?, distanceSpan:Double = 1000, getDataFromFoursquare:Bool = false) {
         // If location isn't nil, set it as the last location
         if location != nil {
             lastLocation = location
@@ -141,32 +165,41 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         
         // If the last location isn't nil, i.e. if a lastLocation was set OR parameter location wasn't nil.
         if let location = lastLocation {
-            // Make a call to Foursquare to get data.
-            if getDataFromFoursquare == true {
-                FoodAPI.sharedInstance.getFoodShopsWithLocation(location);
-            }
             
             // Convenience method to calculate the top-left and bottom-right GPS coordinates based on region (defined with distanceSpan).
-            let (start, stop) = calculateCoordinatesWithRegion(location, distanceSpan: distanceSpan);
+            let (start, stop) = calculateCoordinatesWithRegion(location, distanceSpan: distanceSpan * 10.0)
+            let (displayStart, displayStop) = calculateCoordinatesWithRegion(location, distanceSpan: nil)
+            
+            // Make a call to Foursquare to get data.
+            if getDataFromFoursquare == true {
+                FoodAPI.sharedInstance.getFoodShopsWithLocation(location,distanceSpan: distanceSpan * 10.0)
+            }
             
             // Set up a predicate that ensures the fetched venues are within the region of the user location.
-            let predicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude);
+            let mapPredicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude)
+            let tablePredicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", displayStart.latitude, displayStop.latitude, displayStart.longitude, displayStop.longitude)
             
             // Initialize Realm (while supressing error handling).
             let realm = try! Realm();
             
             // Get all the objects of class Venue from Realm. Note that the "sort" isn't part of Realm, it's Swift, and it defeats Realm's lazy loading nature!
-            venues = realm.objects(Venue)
+            allVenues = realm.objects(Venue)
             
-            // Throw the found venues on the map kit as annotations
-            for venue in venues! {
+            // Filter to only what's within 10x larger than distanceSpan, to load annotations on map to allow smooth map dragging.
+            mapVenues = allVenues!.filter(mapPredicate).sort {
+                // The sort method takes one argument: a closure that determines the order of two unsorted objects. By returning true or false, the closure indicates which of the two objects precedes the other. In your code, you determine the order based on distance from the user’s location. This is where the coordinate computed property comes into play. The $0 and $1 are shorthands for the two unsorted objects. Basically, the method sorts the venues on distance from the user’s location (closer = higher).
+                location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
+            }
+            // Throw the found venues on the map kit as annotations.
+            for venue in mapVenues! {
                 let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
                 
                 mapView?.addAnnotation(annotation)
             }
             
-            inMapDisplayVenues = venues!.filter(predicate).sort {
-                // The sort method takes one argument: a closure that determines the order of two unsorted objects. By returning true or false, the closure indicates which of the two objects precedes the other. In your code, you determine the order based on distance from the user’s location. This is where the coordinate computed property comes into play. The $0 and $1 are shorthands for the two unsorted objects. Basically, the method sorts the venues on distance from the user’s location (closer = higher).
+            
+            // Filter to only what's on display on map.
+            tableVenues = allVenues!.filter(tablePredicate).sort {
                 location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
             }
             
@@ -178,11 +211,10 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     func onVenuesUpdated(notification:NSNotification) {
         // When new data from Foursquare comes in, reload from local Realm.
         // The method does not include location data, and does not provide the getDataFromFoursquare parameter. That parameter is false by default, so no data from Foursquare is requested. You get it: this would in turn trigger an infinite loop in which the return of data causes a request for data ad infinitum.
-        refreshVenues(nil, distanceSpan: nil);
+        refreshVenues(nil);
     }
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning();
     }
 }
-

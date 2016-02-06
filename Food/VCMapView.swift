@@ -36,11 +36,11 @@ extension ViewController: MKMapViewDelegate {
                 
                 //            let location = view.annotation as! FoodAnnotation
                 
-                print(inMapDisplayVenues?.count)
+//                print(tableVenues?.count)
                 //
-                //            for var i = 0; i<inMapDisplayVenues?.count; i++ {
+                //            for var i = 0; i<tableVenues?.count; i++ {
                 //                print(i)
-                //                if location.coordinate.latitude == Double(inMapDisplayVenues![i].latitude) && location.coordinate.longitude == Double(inMapDisplayVenues![i].longitude) {
+                //                if location.coordinate.latitude == Double(tableVenues![i].latitude) && location.coordinate.longitude == Double(tableVenues![i].longitude) {
                 //                    print("success")
                 //                    tableView?.selectRowAtIndexPath(NSIndexPath(index: i), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 2)!)
                 //                    break
