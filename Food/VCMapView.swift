@@ -29,7 +29,7 @@ extension ViewController: MKMapViewDelegate {
                 view = dequeuedView
             } else {
                 view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
-                view.animatesDrop = false
+                view.animatesDrop = true
                 view.canShowCallout = true
                 view.calloutOffset = CGPoint(x: -5, y: 5)
                 view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
