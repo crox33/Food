@@ -45,8 +45,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         mapDragRecognizer.delegate = self
         self.mapView!.addGestureRecognizer(mapDragRecognizer)
         
-        
-        populate("MapView", location: nil, distanceSpan: nil)
     }
     
     override func viewWillAppear(animated: Bool) {
@@ -72,13 +70,15 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             locationManager!.delegate = self;
             locationManager!.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
             locationManager!.requestAlwaysAuthorization();
-            locationManager!.distanceFilter = 10; // Don't send location updates with a distance smaller than 50 meters between them
+            locationManager!.distanceFilter = 20; // Don't send location updates with a distance smaller than 50 meters between them
             // This will cause the location manager to poll for a GPS location, and call a method on the delegate telling it the new GPS location.
             locationManager!.startUpdatingLocation();
         }
         mapView!.showsUserLocation = true
-
+        
+        populate("MapView", location: nil, distanceSpan: nil)
     }
+
     
     // For the UIPanGestureRecognizer to work with the already existing gesture recognizers in MKMapView.
     func gestureRecognizer(gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWithGestureRecognizer otherGestureRecognizer: UIGestureRecognizer) -> Bool {
@@ -93,14 +93,12 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         
         if (gestureRecognizer.state == UIGestureRecognizerState.Ended) {
             print("Map drag ended")
-    
-            let mapLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
             
-            populate("TableView", location: mapLocation, distanceSpan: nil)
             // Only pulls data from Realm.
 //            refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
         }
     }
+    
     
     // Turn a CLLocation instance into a top-left and bottom-right coordinate, based on a region distance span. If distanceSpan is not passed in, the function will calculate from the mapView's current displayed region.
     func calculateCoordinatesWithRegion(location:CLLocation, distanceSpan:Double?) -> (CLLocationCoordinate2D, CLLocationCoordinate2D) {

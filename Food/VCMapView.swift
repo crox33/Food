@@ -27,6 +27,7 @@ extension ViewController: MKMapViewDelegate {
             if let dequeuedView = mapView.dequeueReusableAnnotationViewWithIdentifier("annotationIdentifier") as? MKPinAnnotationView {
                 dequeuedView.annotation = annotation
                 view = dequeuedView
+                
             } else {
                 view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
                 view.animatesDrop = true
@@ -34,20 +35,6 @@ extension ViewController: MKMapViewDelegate {
                 view.calloutOffset = CGPoint(x: -5, y: 5)
                 view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
                 
-                //            let location = view.annotation as! FoodAnnotation
-                
-//                print(tableVenues?.count)
-                //
-                //            for var i = 0; i<tableVenues?.count; i++ {
-                //                print(i)
-                //                if location.coordinate.latitude == Double(tableVenues![i].latitude) && location.coordinate.longitude == Double(tableVenues![i].longitude) {
-                //                    print("success")
-                //                    tableView?.selectRowAtIndexPath(NSIndexPath(index: i), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 2)!)
-                //                    break
-                //                }
-                //                
-                //            }
-            
             }
             return view
         }
@@ -56,7 +43,19 @@ extension ViewController: MKMapViewDelegate {
     }
     
     
-    // When the user taps a map annotation pin, the callout shows an info button. If the user taps this info button, this method is called.
+    // When user taps the map annotation pin.
+    func mapView(mapView: MKMapView,didSelectAnnotationView view: MKAnnotationView){
+        // Select the corresponding row from table view.
+        for var i = 0; i<tableVenues?.count; i++ {
+            if view.annotation?.coordinate.latitude == Double(tableVenues![i].latitude) && view.annotation?.coordinate.longitude == Double(tableVenues![i].longitude) {
+                
+                tableView?.selectRowAtIndexPath(NSIndexPath(forRow: i, inSection: 0), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 1)!)
+                break
+            }
+        }
+    }
+    
+    // When the user taps the callout info button after the map annotation pin.
     func mapView(mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
         /* Grab the FoodAnnotation object that this tap refers to and then launch the Maps app by creating an associated MKMapItem and calling openInMapsWithLaunchOptions on the map item.
         Notice you’re passing a dictionary to this method. This allows you to specify a few different options; here the DirectionModeKeys is set to Walking. This will make the Maps app try to show walking directions from the user’s current location to this pin.
@@ -67,9 +66,30 @@ extension ViewController: MKMapViewDelegate {
         
     }
     
-    
+    // When the map has changed, re-populate TableView based on new map region and select the row if there are selected annotations
     func mapView(mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         center = mapView.centerCoordinate
+        
+        let mapLocation = CLLocation(latitude: center!.latitude, longitude: center!.longitude)
+        
+        populate("TableView", location: mapLocation, distanceSpan: nil)
+        
+        let annotations = mapView.selectedAnnotations
+        
+        if annotations.count > 0{
+            for annotation in annotations {
+              
+                for var i = 0; i<tableVenues?.count; i++ {
+                    
+                    if annotation.coordinate.latitude == Double(tableVenues![i].latitude) && annotation.coordinate.longitude == Double(tableVenues![i].longitude) {
+                        
+                        tableView?.selectRowAtIndexPath(NSIndexPath(forRow: i, inSection: 0), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 1)!)
+                        break
+                    }
+                    
+                }
+            }
+        }
     }
     
 }
