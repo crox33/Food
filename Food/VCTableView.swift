@@ -35,7 +35,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
         }
         
         // If venues contains an item for index indexPath.row, assign it to constant venue. Use the data to populate the textLabel and detailTextLabel of the cell.
-        print("table \(tableVenues?.count) rows ; all  \(allVenues?.count) rows")
+//        print("table \(tableVenues?.count) rows ; all  \(allVenues?.count) rows")
         if let venue = tableVenues?[indexPath.row] {
             cell!.textLabel?.text = venue.name;
             cell!.detailTextLabel?.text = venue.address;

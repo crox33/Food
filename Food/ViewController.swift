@@ -17,6 +17,9 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     /// Outlet for the table view (bottom)
     @IBOutlet var tableView:UITableView?
     
+    /// Outlet for the search button
+    @IBOutlet weak var searchButton: UIButton!
+    
     /// Location manager to get the user's location
     var locationManager: CLLocationManager?
     
@@ -45,6 +48,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         mapDragRecognizer.delegate = self
         self.mapView!.addGestureRecognizer(mapDragRecognizer)
         
+        populate("MapView", location: nil, distanceSpan: nil)
     }
     
     override func viewWillAppear(animated: Bool) {
@@ -59,6 +63,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             // The current class becomes delegate of mapView if it isn’t empty.
             mapView.delegate = self;
         }
+        
     }
     
     override func viewDidAppear(animated: Bool) {
@@ -75,8 +80,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             locationManager!.startUpdatingLocation();
         }
         mapView!.showsUserLocation = true
-        
-        populate("MapView", location: nil, distanceSpan: nil)
+
     }
 
     
@@ -88,15 +92,45 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     // Detect either the "drag ended" or "drag began" state in your selector.
     func didDragMap(gestureRecognizer: UIGestureRecognizer) {
         if (gestureRecognizer.state == UIGestureRecognizerState.Began) {
-            print("Map drag began")
+//            print("Map drag began")
         }
         
         if (gestureRecognizer.state == UIGestureRecognizerState.Ended) {
-            print("Map drag ended")
             
-            // Only pulls data from Realm.
-//            refreshVenues(viewLocation,distanceSpan: nil, getDataFromFoursquare: false)
+            searchButton.hidden = false
+            
         }
+    }
+    
+    
+    @IBAction func searchTapped(sender: AnyObject) {
+        
+        let viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
+        let mapDisplayDistance = calculateDistanceFromMap((mapView?.region)!)
+        
+        
+        // Pulls data from Foursquare API(~ 2x the view region size) and re-populate map.
+        refreshVenues(viewLocation, distanceSpan: mapDisplayDistance)
+        populate("MapView", location: nil, distanceSpan: mapDisplayDistance * 2.0)
+        
+        searchButton.hidden = true
+    }
+    
+    // Calculates the maximum of lattitude and longitude distance in meters for a map region.
+    func calculateDistanceFromMap(region:MKCoordinateRegion) -> Double {
+        
+        let span = region.span
+        let center = region.center
+        
+        let loc1 = CLLocation(latitude: center.latitude - span.latitudeDelta * 0.5, longitude: center.longitude)
+        let loc2 = CLLocation(latitude: center.latitude + span.latitudeDelta * 0.5, longitude: center.longitude)
+        let loc3 = CLLocation(latitude: center.latitude, longitude: center.longitude - span.longitudeDelta * 0.5)
+        let loc4 = CLLocation(latitude: center.latitude, longitude: center.longitude + span.longitudeDelta * 0.5)
+        
+        let metersInLatitude = loc1.distanceFromLocation(loc2)
+        let metersInLongitude = loc3.distanceFromLocation(loc4)
+        
+        return max(metersInLatitude,metersInLongitude)
     }
     
     
@@ -189,12 +223,15 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         if location != nil {
             lastLocation = location
         }
-        
+
         // If the last location isn't nil, i.e. if a lastLocation was set OR parameter location wasn't nil.
         if let location = lastLocation {
             // Make a call to Foursquare to get data.
             FoodAPI.sharedInstance.getFoodShopsWithLocation(location,distanceSpan: distanceSpan)
         }
+        
+        // Reset lastLocation, otherwise every map drag will refresh venues automatically based on last location
+        lastLocation = nil
     }
     
     func onVenuesUpdated(notification:NSNotification) {
