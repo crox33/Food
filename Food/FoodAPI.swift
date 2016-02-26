@@ -41,7 +41,7 @@ class FoodAPI {
             var parameters = location.parameters();
             parameters += [Parameter.categoryId: "4d4b7105d754a06374d81259"];
             parameters += [Parameter.radius: "\(distanceSpan)"];
-            parameters += [Parameter.limit: "500"];
+            parameters += [Parameter.limit: "50"];
             
             // Start a "search", i.e. an async call to Foursquare that should return venue data.
             let searchTask = session.venues.search(parameters) {

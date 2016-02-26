@@ -32,11 +32,11 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     
     /// Stores venues from Realm, as a non-lazy list
     var mapVenues:[Venue]?;
-    var tableVenues:[Venue]?;
     
     /// Span in meters for map view and data filtering
     let distanceSpan:Double = 1000
     var center: CLLocationCoordinate2D?
+    var isInitialized = false
     
     override func viewDidLoad() {
         super.viewDidLoad();
@@ -48,7 +48,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         mapDragRecognizer.delegate = self
         self.mapView!.addGestureRecognizer(mapDragRecognizer)
         
-        populate("MapView", location: nil, distanceSpan: nil)
+        
     }
     
     override func viewWillAppear(animated: Bool) {
@@ -80,7 +80,7 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             locationManager!.startUpdatingLocation();
         }
         mapView!.showsUserLocation = true
-
+        
     }
 
     
@@ -109,12 +109,15 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         let mapDisplayDistance = calculateDistanceFromMap((mapView?.region)!)
         
         
-        // Pulls data from Foursquare API(~ 2x the view region size) and re-populate map.
+        // Pulls data from Foursquare API(~ 1x the view region size) and re-populate map.
         refreshVenues(viewLocation, distanceSpan: mapDisplayDistance)
-        populate("MapView", location: nil, distanceSpan: mapDisplayDistance * 2.0)
+        populate(viewLocation, distanceSpan: mapDisplayDistance * 2.0)
         
         searchButton.hidden = true
+        
+        self.mapView!.removeOverlays(self.mapView!.overlays)
     }
+    
     
     // Calculates the maximum of lattitude and longitude distance in meters for a map region.
     func calculateDistanceFromMap(region:MKCoordinateRegion) -> Double {
@@ -158,80 +161,68 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     
     // All location data in the app originates from the locationManager:didUpdateToLocation:fromLocation method. It is the only place where a CLLocation instance enters the app, based on data from the GPS hardware.
     func locationManager(manager: CLLocationManager, didUpdateToLocation newLocation: CLLocation, fromLocation oldLocation: CLLocation) {
-        if let mapView = self.mapView {
+        if !isInitialized {
+            
+            // Set flag to true so that it's only called once in here
+            isInitialized = true
+            
             // setRegion sets both the center coordinate, and the "zoom level"
             let region = MKCoordinateRegionMakeWithDistance(newLocation.coordinate, distanceSpan, distanceSpan);
-            mapView.setRegion(region, animated: true)
+            self.mapView!.setRegion(region, animated: true)
             
-            // Reload tableView
-            populate("TableView", location: newLocation, distanceSpan: distanceSpan)
+            // Reload map and table
+            populate(newLocation, distanceSpan: distanceSpan * 2.0)
         }
+        
+        lastLocation = newLocation
     }
     
     
-    func populate(viewIdentifier: String, location: CLLocation? , distanceSpan:Double?) {
+    func populate(location: CLLocation , distanceSpan:Double?) {
         
         // Refresh Venue property
         allVenues = try! Realm().objects(Venue)
         
-        if let location = location {
-            
-            // Convenience method to calculate the top-left and bottom-right GPS coordinates based on region (defined with distanceSpan).
-            let (start, stop) = calculateCoordinatesWithRegion(location, distanceSpan: distanceSpan)
-            
-            // Set up a predicate that ensures the fetched venues are within the region of the user location.
-            let predicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude)
-            
-            switch viewIdentifier {
-                case "TableView":
-                    tableVenues = allVenues!.filter(predicate).sort {
-                        // The sort method takes one argument: a closure that determines the order of two unsorted objects. By returning true or false, the closure indicates which of the two objects precedes the other. In your code, you determine the order based on distance from the user’s location. This is where the coordinate computed property comes into play. The $0 and $1 are shorthands for the two unsorted objects. Basically, the method sorts the venues on distance from the user’s location (closer = higher).
-                        location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
-                    }
-                    // RELOAD ALL DATA to be show in the table.
-                    tableView?.reloadData()
-                
-                case "MapView":
-                    mapView!.removeAnnotations(mapView!.annotations)
-                    mapVenues = allVenues!.filter(predicate).sort {
-                        location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
-                    }
-                    // Throw the found venues on the map kit as annotations.
-                    for venue in mapVenues! {
-                        let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
-                        
-                        mapView?.addAnnotation(annotation)
-                    }
-                
-                default:
-                    break
-            }
-            
-        } else {
-            for venue in allVenues! {
-                let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
-            
-                mapView?.addAnnotation(annotation)
-            }
+        // Convenience method to calculate the top-left and bottom-right GPS coordinates based on region (defined with distanceSpan).
+        let (start, stop) = calculateCoordinatesWithRegion(location, distanceSpan: distanceSpan)
+        
+        // Set up a predicate that ensures the fetched venues are within the region of the user location.
+        let predicate = NSPredicate(format: "latitude < %f AND latitude > %f AND longitude > %f AND longitude < %f", start.latitude, stop.latitude, start.longitude, stop.longitude)
+        
+        
+        mapView!.removeAnnotations(mapView!.annotations)
+        mapVenues = allVenues!.filter(predicate).sort {
+            location.distanceFromLocation($0.coordinate) < location.distanceFromLocation($1.coordinate);
         }
+        // Throw the found venues on the map kit as annotations.
+        for venue in mapVenues! {
+            let annotation = FoodAnnotation(title: venue.name, subtitle: venue.address, coordinate: CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)));
+            
+            mapView?.addAnnotation(annotation)
+        }
+        
+        // RELOAD ALL DATA to be show in the table.
+        tableView?.reloadData()
+        
     }
     
-    
+
+
     // We want to call refreshVenues independently from method locationManager:didUpdateToLocation:fromLocation we need to store the location data separate from that method. This calls Foursquare to get data.
     func refreshVenues(location: CLLocation?, distanceSpan:Double = 1000) {
         // If location isn't nil, set it as the last location.
-        if location != nil {
-            lastLocation = location
-        }
+//        if location != nil {
+//            lastLocation = location
+//        }
 
         // If the last location isn't nil, i.e. if a lastLocation was set OR parameter location wasn't nil.
-        if let location = lastLocation {
+        if let location = location {
             // Make a call to Foursquare to get data.
             FoodAPI.sharedInstance.getFoodShopsWithLocation(location,distanceSpan: distanceSpan)
         }
         
-        // Reset lastLocation, otherwise every map drag will refresh venues automatically based on last location
-        lastLocation = nil
+//        // Reset lastLocation, otherwise every map drag will refresh venues automatically based on last location
+//        lastLocation = nil
     }
     
     func onVenuesUpdated(notification:NSNotification) {
@@ -239,6 +230,32 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         // The method does not include location data, and does not provide the getDataFromFoursquare parameter. That parameter is false by default, so no data from Foursquare is requested. You get it: this would in turn trigger an infinite loop in which the return of data causes a request for data ad infinitum.
         refreshVenues(nil);
     }
+    
+    
+    func displayRoute(source:CLLocation,destination:CLLocation) {
+        
+        let overlays = self.mapView!.overlays
+        self.mapView!.removeOverlays(overlays)
+        
+        let request = MKDirectionsRequest()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: source.coordinate.latitude, longitude: source.coordinate.longitude), addressDictionary: nil))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: destination.coordinate.latitude, longitude: destination.coordinate.longitude), addressDictionary: nil))
+        request.requestsAlternateRoutes = true
+        request.transportType = MKDirectionsTransportType.Walking
+        
+        let directions = MKDirections(request: request)
+        
+        // Sets up a closure to run when the directions come back that adds them as overlays to the map.
+        directions.calculateDirectionsWithCompletionHandler { [unowned self] response, error in
+            guard let unwrappedResponse = response else { return }
+    
+            for route in unwrappedResponse.routes {
+                self.mapView!.addOverlay(route.polyline,level: MKOverlayLevel.AboveRoads)
+//                self.mapView!.setVisibleMapRect(route.polyline.boundingMapRect, animated: true)
+            }
+        }
+    }
+    
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning();

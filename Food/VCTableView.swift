@@ -16,7 +16,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     // Determines how many cells the table view has.
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // When venues is nil, this will return 0 (nil-coalescing operator ??)
-        return tableVenues?.count ?? 0;
+        return mapVenues?.count ?? 0;
     }
     
     // Determines how many sections the table view has.
@@ -35,8 +35,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
         }
         
         // If venues contains an item for index indexPath.row, assign it to constant venue. Use the data to populate the textLabel and detailTextLabel of the cell.
-//        print("table \(tableVenues?.count) rows ; all  \(allVenues?.count) rows")
-        if let venue = tableVenues?[indexPath.row] {
+        if let venue = mapVenues?[indexPath.row] {
             cell!.textLabel?.text = venue.name;
             cell!.detailTextLabel?.text = venue.address;
         }
@@ -48,9 +47,9 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
         
         // When the user taps a table view cell, attempt to pan to the pin in the map view and trigger callout on the pin
-        if let venue = tableVenues?[indexPath.row] {
-            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
-            mapView?.setRegion(region, animated: true)
+        if let venue = mapVenues?[indexPath.row] {
+//            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
+//            mapView?.setRegion(region, animated: true)
             
             for annotation in mapView!.annotations {
                 if annotation.coordinate.latitude == Double(venue.latitude) && annotation.coordinate.longitude == Double(venue.longitude) {

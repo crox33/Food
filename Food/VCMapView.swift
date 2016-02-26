@@ -33,7 +33,7 @@ extension ViewController: MKMapViewDelegate {
                 view.animatesDrop = false
                 view.canShowCallout = true
                 view.calloutOffset = CGPoint(x: -5, y: 5)
-                view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
+//                view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
                 
             }
             return view
@@ -45,15 +45,26 @@ extension ViewController: MKMapViewDelegate {
     
     // When user taps the map annotation pin.
     func mapView(mapView: MKMapView,didSelectAnnotationView view: MKAnnotationView){
+        
+        
+        let destinationLocation = CLLocation(latitude: view.annotation!.coordinate.latitude, longitude: view.annotation!.coordinate.longitude)
+        displayRoute(lastLocation!, destination: destinationLocation)
+        
         // Select the corresponding row from table view.
-        for var i = 0; i<tableVenues?.count; i++ {
-            if view.annotation?.coordinate.latitude == Double(tableVenues![i].latitude) && view.annotation?.coordinate.longitude == Double(tableVenues![i].longitude) {
+        for var i = 0; i<mapVenues?.count; i++ {
+            if view.annotation?.coordinate.latitude == Double(mapVenues![i].latitude) && view.annotation?.coordinate.longitude == Double(mapVenues![i].longitude) {
                 
                 tableView?.selectRowAtIndexPath(NSIndexPath(forRow: i, inSection: 0), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 1)!)
                 break
             }
         }
+        
+        
+
     }
+    
+    
+    
     
     // When the user taps the callout info button after the map annotation pin.
     func mapView(mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
@@ -67,29 +78,37 @@ extension ViewController: MKMapViewDelegate {
     }
     
     // When the map has changed, re-populate TableView based on new map region and select the row if there are selected annotations
-    func mapView(mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        center = mapView.centerCoordinate
-        
-        let mapLocation = CLLocation(latitude: center!.latitude, longitude: center!.longitude)
-        
-        populate("TableView", location: mapLocation, distanceSpan: nil)
-        
-        let annotations = mapView.selectedAnnotations
-        
-        if annotations.count > 0{
-            for annotation in annotations {
-              
-                for var i = 0; i<tableVenues?.count; i++ {
-                    
-                    if annotation.coordinate.latitude == Double(tableVenues![i].latitude) && annotation.coordinate.longitude == Double(tableVenues![i].longitude) {
-                        
-                        tableView?.selectRowAtIndexPath(NSIndexPath(forRow: i, inSection: 0), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 1)!)
-                        break
-                    }
-                    
-                }
-            }
-        }
+//    func mapView(mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+//        center = mapView.centerCoordinate
+//        
+//        let mapLocation = CLLocation(latitude: center!.latitude, longitude: center!.longitude)
+//        populate(mapLocation, distanceSpan: nil)
+//        populate(mapLocation, distanceSpan: nil)
+//        
+//        let annotations = mapView.selectedAnnotations
+//        
+//        if annotations.count > 0{
+//            for annotation in annotations {
+//              
+//                for var i = 0; i<mapVenues?.count; i++ {
+//                    
+//                    if annotation.coordinate.latitude == Double(mapVenues![i].latitude) && annotation.coordinate.longitude == Double(mapVenues![i].longitude) {
+//                        
+//                        tableView?.selectRowAtIndexPath(NSIndexPath(forRow: i, inSection: 0), animated: true, scrollPosition: UITableViewScrollPosition(rawValue: 1)!)
+//                        break
+//                    }
+//                    
+//                }
+//            }
+//        }
+//    }
+    
+    // To make overlays draw.
+    func mapView(mapView: MKMapView, rendererForOverlay overlay: MKOverlay) -> MKOverlayRenderer {
+        let renderer = MKPolylineRenderer(polyline: overlay as! MKPolyline)
+        renderer.strokeColor = UIColor.blueColor().colorWithAlphaComponent(0.5)
+        renderer.lineWidth = 6
+        return renderer
     }
     
 }
