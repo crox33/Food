@@ -31,8 +31,14 @@ extension ViewController: MKMapViewDelegate {
             } else {
                 view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "annotationIdentifier")
                 view.animatesDrop = false
+//                let widthConstraint = NSLayoutConstraint(item: myView, attribute: .Width, relatedBy: .Equal, toItem: nil, attribute: .NotAnAttribute, multiplier: 1, constant: 40)
+//                myView.addConstraint(widthConstraint)
+//                
+//                let heightConstraint = NSLayoutConstraint(item: myView, attribute: .Height, relatedBy: .Equal, toItem: nil, attribute: .NotAnAttribute, multiplier: 1, constant: 20)
+//                myView.addConstraint(heightConstraint)
+
                 view.canShowCallout = true
-                view.calloutOffset = CGPoint(x: -5, y: 5)
+//                view.calloutOffset = CGPoint(x: -5, y: 5)
 //                view.rightCalloutAccessoryView = UIButton(type: .InfoLight)
                 
             }
@@ -46,9 +52,7 @@ extension ViewController: MKMapViewDelegate {
     // When user taps the map annotation pin.
     func mapView(mapView: MKMapView,didSelectAnnotationView view: MKAnnotationView){
         
-        
-        let destinationLocation = CLLocation(latitude: view.annotation!.coordinate.latitude, longitude: view.annotation!.coordinate.longitude)
-        displayRoute(lastLocation!, destination: destinationLocation)
+        displayRoute(lastLocation!, destinationView: view)
         
         // Select the corresponding row from table view.
         for var i = 0; i<mapVenues?.count; i++ {

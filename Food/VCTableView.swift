@@ -48,8 +48,6 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
         
         // When the user taps a table view cell, attempt to pan to the pin in the map view and trigger callout on the pin
         if let venue = mapVenues?[indexPath.row] {
-//            let region = MKCoordinateRegionMakeWithDistance(CLLocationCoordinate2D(latitude: Double(venue.latitude), longitude: Double(venue.longitude)), distanceSpan/2.0, distanceSpan/2.0)
-//            mapView?.setRegion(region, animated: true)
             
             for annotation in mapView!.annotations {
                 if annotation.coordinate.latitude == Double(venue.latitude) && annotation.coordinate.longitude == Double(venue.longitude) {

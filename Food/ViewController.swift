@@ -108,7 +108,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         let viewLocation = CLLocation(latitude: (mapView?.centerCoordinate.latitude)!, longitude: (mapView?.centerCoordinate.longitude)!)
         let mapDisplayDistance = calculateDistanceFromMap((mapView?.region)!)
         
-        
         // Pulls data from Foursquare API(~ 1x the view region size) and re-populate map.
         refreshVenues(viewLocation, distanceSpan: mapDisplayDistance)
         populate(viewLocation, distanceSpan: mapDisplayDistance * 2.0)
@@ -171,7 +170,10 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             self.mapView!.setRegion(region, animated: true)
             
             // Reload map and table
+            // Pulls data from Foursquare API(~ 1x the view region size) and re-populate map.
+            refreshVenues(newLocation, distanceSpan: distanceSpan * 2.0)
             populate(newLocation, distanceSpan: distanceSpan * 2.0)
+            
         }
         
         lastLocation = newLocation
@@ -179,6 +181,28 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     
     
     func populate(location: CLLocation , distanceSpan:Double?) {
+
+        
+        let config = Realm.Configuration(
+            // Set the new schema version. This must be greater than the previously used
+            // version (if you've never set a schema version before, the version is 0).
+            schemaVersion: 2,
+            
+            // Set the block which will be called automatically when opening a Realm with
+            // a schema version lower than the one set above
+            migrationBlock: { migration, oldSchemaVersion in
+                // We haven’t migrated anything yet, so oldSchemaVersion == 0
+                if (oldSchemaVersion < 1) {
+                    // Nothing to do!
+                    // Realm will automatically detect new properties and removed properties
+                    // And will update the schema on disk automatically
+                }
+        })
+        
+        // Tell Realm to use this new configuration object for the default Realm
+        Realm.Configuration.defaultConfiguration = config
+        
+//        print("Realm db current version: \(config.schemaVersion)")
         
         // Refresh Venue property
         allVenues = try! Realm().objects(Venue)
@@ -203,17 +227,13 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
         
         // RELOAD ALL DATA to be show in the table.
         tableView?.reloadData()
-        
+
     }
     
 
 
     // We want to call refreshVenues independently from method locationManager:didUpdateToLocation:fromLocation we need to store the location data separate from that method. This calls Foursquare to get data.
     func refreshVenues(location: CLLocation?, distanceSpan:Double = 1000) {
-        // If location isn't nil, set it as the last location.
-//        if location != nil {
-//            lastLocation = location
-//        }
 
         // If the last location isn't nil, i.e. if a lastLocation was set OR parameter location wasn't nil.
         if let location = location {
@@ -221,8 +241,6 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
             FoodAPI.sharedInstance.getFoodShopsWithLocation(location,distanceSpan: distanceSpan)
         }
         
-//        // Reset lastLocation, otherwise every map drag will refresh venues automatically based on last location
-//        lastLocation = nil
     }
     
     func onVenuesUpdated(notification:NSNotification) {
@@ -232,26 +250,42 @@ class ViewController: UIViewController, CLLocationManagerDelegate, UIGestureReco
     }
     
     
-    func displayRoute(source:CLLocation,destination:CLLocation) {
+    func displayRoute(source:CLLocation,destinationView:MKAnnotationView) {
+        
+        let myView = UITextView(frame: CGRectMake(0,0,40,40))
+        myView.backgroundColor = UIColor.blueColor().colorWithAlphaComponent(0.8)
+        myView.font = UIFont.systemFontOfSize(10)
+        myView.textColor = UIColor.whiteColor()
+        myView.textAlignment = NSTextAlignment.Center
+        
+
         
         let overlays = self.mapView!.overlays
         self.mapView!.removeOverlays(overlays)
         
+        destinationView.annotation?.coordinate
+        
         let request = MKDirectionsRequest()
         request.source = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: source.coordinate.latitude, longitude: source.coordinate.longitude), addressDictionary: nil))
-        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: destination.coordinate.latitude, longitude: destination.coordinate.longitude), addressDictionary: nil))
-        request.requestsAlternateRoutes = true
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: destinationView.annotation!.coordinate.latitude, longitude: destinationView.annotation!.coordinate.longitude), addressDictionary: nil))
+        
+        request.requestsAlternateRoutes = false
         request.transportType = MKDirectionsTransportType.Walking
         
         let directions = MKDirections(request: request)
-        
+
         // Sets up a closure to run when the directions come back that adds them as overlays to the map.
         directions.calculateDirectionsWithCompletionHandler { [unowned self] response, error in
             guard let unwrappedResponse = response else { return }
-    
+            
+            print("\(unwrappedResponse.routes.count) routes found")
+            
             for route in unwrappedResponse.routes {
                 self.mapView!.addOverlay(route.polyline,level: MKOverlayLevel.AboveRoads)
 //                self.mapView!.setVisibleMapRect(route.polyline.boundingMapRect, animated: true)
+                myView.text = "\(Int(ceil(route.expectedTravelTime/60.0))) min"
+                destinationView.leftCalloutAccessoryView = myView
+
             }
         }
     }

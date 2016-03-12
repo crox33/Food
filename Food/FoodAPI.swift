@@ -81,6 +81,12 @@ class FoodAPI {
                                                 venueObject.address = formattedAddress.joinWithSeparator(" ");
                                             }
                                         }
+                                        
+                                        if let url = venue["url"] as? String {
+                                            venueObject.url = url
+                                        }
+                                        
+                                        
                                         // When this object already exists, Realm should overwrite it with the new data.
                                         realm.add(venueObject, update: true);
                                     }

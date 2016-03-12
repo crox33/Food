@@ -21,6 +21,8 @@ class Venue: Object {
     
     dynamic var address:String = "";
     
+    dynamic var url:String = "";
+    
     // It’s a computed property. It won’t be saved with Realm because it can’t store computed properties. It’s like a method, but then it’s accessed as if it were a property.
     var coordinate:CLLocation {
         return CLLocation(latitude: Double(latitude), longitude: Double(longitude));
